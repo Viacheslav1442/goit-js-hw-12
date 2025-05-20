@@ -1,78 +1,100 @@
-import { getImagesByQuery } from './pixabay-api';
+import iziToast from 'izitoast';
+import 'izitoast/dist/css/iziToast.min.css';
+
+import { getImagesByQuery } from './js/pixabay-api.js';
 import {
     createGallery,
     clearGallery,
     showLoader,
     hideLoader,
+    hideLoadMoreButton,
     showLoadMoreButton,
-    hideLoadMoreButton
-} from './render-functions';
-import iziToast from 'izitoast';
-import 'izitoast/dist/css/iziToast.min.css';
+} from './js/render-functions.js';
 
-const form = document.querySelector('#search-form');
+const form = document.querySelector('.form');
 const loadMoreBtn = document.querySelector('.load-more');
 
-let query = '';
+let query;
 let page = 1;
-let totalHits = 0;
+const perPage = 15; // Added this so that i can dynamically change per_page query
+let prevQuery = '';
 
-form.addEventListener('submit', async (e) => {
+form.addEventListener('submit', e => {
     e.preventDefault();
-    query = e.target.elements.searchQuery.value.trim();
+
+    hideLoadMoreButton();
+
+    clearGallery();
+
+    query = e.target.elements['search-text'].value.trim();
+
+    showImages(query);
+});
+
+loadMoreBtn.addEventListener('click', e => {
+    hideLoadMoreButton();
+
+    showImages(query);
+});
+
+async function showImages(query) {
     if (!query) return;
 
-    page = 1;
-    clearGallery();
-    hideLoadMoreButton();
     showLoader();
 
-    try {
-        const data = await getImagesByQuery(query, page);
-        totalHits = data.totalHits;
-
-        if (data.hits.length === 0) {
-            iziToast.warning({ message: 'No images found', position: 'topRight' });
-            return;
-        }
-
-        createGallery(data.hits);
-        if (data.totalHits > 15) showLoadMoreButton();
-    } catch (err) {
-        iziToast.error({ message: 'Fetch failed', position: 'topRight' });
-    } finally {
-        hideLoader();
+    if (prevQuery !== query) {
+        page = 1;
+        prevQuery = query;
     }
-});
-
-loadMoreBtn.addEventListener('click', async () => {
-    page += 1;
-    showLoader();
-    hideLoadMoreButton();
 
     try {
-        const data = await getImagesByQuery(query, page);
-        createGallery(data.hits);
+        const data = await getImagesByQuery(query, page, perPage);
+        const images = data.hits;
 
-        const totalLoaded = (page - 1) * 15 + data.hits.length;
-        if (totalLoaded >= totalHits) {
-            iziToast.info({ message: `We're sorry, but you've reached the end of search results.`, position: 'topRight' });
+        if (images && images.length > 0) {
+            createGallery(images);
+
+            if (page >= Math.ceil(data.totalHits / perPage)) {
+                iziToast.show({
+                    title: 'ℹ️',
+                    message: "We're sorry, but you've reached the end of search results.",
+                    messageColor: 'white',
+                    titleColor: 'white',
+                    backgroundColor: '#4CAF50',
+                    position: 'topRight',
+                });
+            } else {
+                showLoadMoreButton();
+            }
         } else {
-            showLoadMoreButton();
+            iziToast.show({
+                title: '❌',
+                message: `Sorry, there are no images matching your search query. Please try again!`,
+                messageColor: 'white',
+                titleColor: 'white',
+                backgroundColor: '#ef4040',
+                position: 'topRight',
+            });
         }
 
-        scrollPage();
+        page++;
+
+        scrollView();
     } catch (err) {
-        iziToast.error({ message: 'Error loading more images', position: 'topRight' });
+        console.error(err);
     } finally {
         hideLoader();
     }
-});
+}
 
-function scrollPage() {
-    const { height: cardHeight } = document.querySelector('.gallery-item').getBoundingClientRect();
-    window.scrollBy({
-        top: cardHeight * 2,
-        behavior: 'smooth',
-    });
+function scrollView() {
+    const galleryItem = document.querySelector('.gallery-item');
+    if (!galleryItem) return;
+    setTimeout(() => {
+        scrollBy({
+            top: galleryItem.getBoundingClientRect().height * 2,
+            left: 0,
+            behavior: 'smooth',
+        });
+    }, 200); // Added delay because i don`t like immediate scroll
 }
