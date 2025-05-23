@@ -16,25 +16,26 @@ const loadMoreBtn = document.querySelector('.load-more');
 
 let query;
 let page = 1;
-const perPage = 15; // Added this so that i can dynamically change per_page query
+const perPage = 15;
 let prevQuery = '';
 
-form.addEventListener('submit', e => {
+form.addEventListener('submit', async e => {
     e.preventDefault();
 
     hideLoadMoreButton();
-
     clearGallery();
 
     query = e.target.elements['search-text'].value.trim();
+    if (!query) return;
 
-    showImages(query);
+    await showImages(query); // Дочекайся завершення завантаження
 });
 
-loadMoreBtn.addEventListener('click', e => {
+loadMoreBtn.addEventListener('click', async () => {
     hideLoadMoreButton();
 
-    showImages(query);
+    await showImages(query); // Дочекайся завантаження
+    scrollView(); // Прокрутка тільки при натисканні кнопки
 });
 
 async function showImages(query) {
@@ -78,8 +79,6 @@ async function showImages(query) {
         }
 
         page++;
-
-        scrollView();
     } catch (err) {
         console.error(err);
     } finally {
@@ -96,5 +95,5 @@ function scrollView() {
             left: 0,
             behavior: 'smooth',
         });
-    }, 200); // Added delay because i don`t like immediate scroll
+    }, 200);
 }
